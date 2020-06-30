@@ -5,8 +5,11 @@
     <Please insert your name and the honor code here.>
 """
 
+import random
+
+
 def read_data(treebank, shuffle=True, lowercase=True,
-        tags=None):
+              tags=None):
     """ Read a CoNLL-U formatted treebank, return words and POS tags.
 
     Parameters:
@@ -21,6 +24,41 @@ def read_data(treebank, shuffle=True, lowercase=True,
     words:      A list of words.
     pos:        Corresponding POS tags.
     """
+    # list of word_pos pairs
+    word_pos = []
+
+    with open(treebank, 'r') as f:
+        lines = f.readlines()
+        if shuffle:
+            random.shuffle(lines)
+        for line in lines:
+            # skip blank lines and comments
+            if not line.strip() or line.startswith('#'):
+                continue
+            vs = line.split('\t')
+            # skip words (and their POS tags) that are part of a multi-word token and empty nodes
+            idx = vs[0]
+            if '-' in idx or '.' in idx:
+                continue
+            word = vs[1]
+            pos = vs[3]
+            if lowercase:
+                word = word.lower()
+            # unique pairs
+            if (word, pos) in word_pos:
+                continue
+            else:
+                if tags is not None:
+                    if pos in tags:
+                        word_pos.append((word, pos))
+                    else:
+                        continue
+                else:
+                    word_pos.append((word, pos))
+    words = [x[0] for x in word_pos]
+    pos = [x[1] for x in word_pos]
+    return words, pos
+
 
 class WordEncoder:
     """An encoder for a sequence of words.
@@ -32,7 +70,7 @@ class WordEncoder:
     end of sequence) should be prepended and appended to every word
     before padding or truncation. You should also reserve a symbol for
     unknown characters (distinct from the padding).
-    
+
     The result is either a 2D vector, where all character vectors
     (including padding) of a word are concatenated as a single vector,
     o a 3D vector with a separate vector for each character (see
@@ -45,8 +83,9 @@ class WordEncoder:
              or truncated. If not specified, the fit() method should
              set it to cover the longest word in the training set. 
     """
-    def __init__(self, maxlen = None):
-        ### part of 5.2
+
+    def __init__(self, maxlen=None):
+        # part of 5.2
 
     def fit(self, words):
         """Fit the encoder using words.
@@ -60,7 +99,7 @@ class WordEncoder:
 
         Returns: None
         """
-        ### part of 5.2
+        # part of 5.2
 
     def transform(self, words, pad='right', flat=True):
         """ Transform a sequence of words to a sequence of one-hot vectors.
@@ -86,8 +125,10 @@ class WordEncoder:
         -----------
         encoded_data:  encoding the input words (a 2D or 3D numpy array)
         """
-        ### part of 5.2
+        # part of 5.2
 
+
+'''
 def train_test_mlp(train_x, train_pos, test_x, test_pos):
     """Train and test MLP model predicting POS tags from given encoded words.
 
@@ -119,10 +160,15 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     Returns: None
     """
     ### 5.4
+    '''
 
 
 if __name__ == '__main__':
-    ### Not checked for grading,
-    ### but remember that before calling train_test_mlp() and 
-    ### train_test_rnn(), you need to split the as training and test
-    ### set properly.
+    # Not checked for grading,
+    # but remember that before calling train_test_mlp() and
+    # train_test_rnn(), you need to split the as training and test
+    # set properly.
+
+    # 5.1
+    words, pos = read_data(
+        '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
