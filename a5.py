@@ -85,7 +85,10 @@ class WordEncoder:
     """
 
     def __init__(self, maxlen=None):
-        # part of 5.2
+        # to be set up in fit()
+        self._maxlen = maxlen
+        self._char2idx = dict()
+        self._nchars = len(self._char2idx)
 
     def fit(self, words):
         """Fit the encoder using words.
@@ -99,7 +102,28 @@ class WordEncoder:
 
         Returns: None
         """
-        # part of 5.2
+        setUPmaxlen = False
+        if self._maxlen is None:
+            self._maxlen = 0
+            setUPmaxlen = True
+
+        # special symbols
+        self._char2idx['<s>'] = 1
+        self._char2idx['</s>'] = 2
+        # reserve for unknown chararacters
+        self._char2idx['uk'] = 3
+
+        # current index
+        idx = 4
+        # chars in words
+        for word in words:
+            if len(word) > self._maxlen and setUPmaxlen:
+                self._maxlen = len(word)
+            for char in word:
+                if char not in self._char2idx:
+                    self._char2idx[char] = idx
+                    idx += 1
+        self._nchars = len(self._char2idx)
 
     def transform(self, words, pad='right', flat=True):
         """ Transform a sequence of words to a sequence of one-hot vectors.
@@ -125,7 +149,6 @@ class WordEncoder:
         -----------
         encoded_data:  encoding the input words (a 2D or 3D numpy array)
         """
-        # part of 5.2
 
 
 '''
@@ -172,3 +195,7 @@ if __name__ == '__main__':
     # 5.1
     words, pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
+
+    # 5.2
+    encoder = WordEncoder()
+    encoder.fit(words)
