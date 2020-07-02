@@ -150,48 +150,58 @@ class WordEncoder:
         -----------
         encoded_data:  encoding the input words (a 2D or 3D numpy array)
         """
+        print(self._maxlen)
+        print(self._nchars)
+        print(self._maxlen*self._nchars)
+        print(len(words))
+
+        # params check
+        if isinstance(flat, bool) and (pad == 'right' or pad == 'left'):
+            pass
+        else:
+            raise ValueError(
+                "Illegal Argument! pad can only be 'right' or 'left', flat has to be bool!")
         encoded_words = []
         for word in words:
-
             word = list(word)
             encoded_word = []
-
             # prepend special char
             word.insert(0, '<s>')
             # append special char
             word.append('</s>')
-
-            # truncation or padding
             if len(word) > self._maxlen:
                 # truncation
                 word = word[:self._maxlen]
-            if len(word) < self._maxlen:
-                # padding
-                for _ in range(self._maxlen-len(word)):
-                    word.append('padding')
-
             for char in word:
                 char_vec = [0]*self._nchars
                 if char in self._char2idx:
                     idx = self._char2idx[char]
                     char_vec[idx] = 1
-                elif char == 'padding':
-                    # padding
-                    pass
                 else:
                     # unknown char
                     char = 'uk'
                     idx = self._char2idx[char]
                     char_vec[idx] = 1
-
                 if flat:
                     encoded_word = encoded_word + char_vec
-
                 else:
                     encoded_word.append(char_vec)
-
+            if len(word) < self._maxlen:
+                # padding
+                padding = [0]*self._nchars
+                if pad == 'right':
+                    for _ in range(self._maxlen-len(word)):
+                        if flat:
+                            encoded_word = encoded_word + padding
+                        else:
+                            encoded_word.append(padding)
+                else:
+                    for _ in range(self._maxlen-len(word)):
+                        if flat:
+                            encoded_word = padding + encoded_word
+                        else:
+                            encoded_word.insert(0, padding)
             encoded_words.append(encoded_word)
-
         return np.array(encoded_words)
 
 
@@ -240,9 +250,13 @@ if __name__ == '__main__':
     # 5.1
     words, pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
+    print(len(words))
 
     # 5.2
+    words = ['bb', 'acc']
     encoder = WordEncoder()
     encoder.fit(words)
-    encoded_words = encoder.transform(words, flat=False)
+    encoded_words = encoder.transform(words)
+    # check shape
     print(encoded_words)
+    print(encoded_words.shape)
