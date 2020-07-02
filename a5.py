@@ -6,6 +6,7 @@
 """
 
 import random
+import numpy as np
 
 
 def read_data(treebank, shuffle=True, lowercase=True,
@@ -108,13 +109,13 @@ class WordEncoder:
             setUPmaxlen = True
 
         # special symbols
-        self._char2idx['<s>'] = 1
-        self._char2idx['</s>'] = 2
+        self._char2idx['<s>'] = 0
+        self._char2idx['</s>'] = 1
         # reserve for unknown chararacters
-        self._char2idx['uk'] = 3
+        self._char2idx['uk'] = 2
 
         # current index
-        idx = 4
+        idx = 3
         # chars in words
         for word in words:
             if len(word) > self._maxlen and setUPmaxlen:
@@ -149,9 +150,51 @@ class WordEncoder:
         -----------
         encoded_data:  encoding the input words (a 2D or 3D numpy array)
         """
+        encoded_words = []
+        for word in words:
+
+            word = list(word)
+            encoded_word = []
+
+            # prepend special char
+            word.insert(0, '<s>')
+            # append special char
+            word.append('</s>')
+
+            # truncation or padding
+            if len(word) > self._maxlen:
+                # truncation
+                word = word[:self._maxlen]
+            if len(word) < self._maxlen:
+                # padding
+                for _ in range(self._maxlen-len(word)):
+                    word.append('padding')
+
+            for char in word:
+                char_vec = [0]*self._nchars
+                if char in self._char2idx:
+                    idx = self._char2idx[char]
+                    char_vec[idx] = 1
+                elif char == 'padding':
+                    # padding
+                    pass
+                else:
+                    # unknown char
+                    char = 'uk'
+                    idx = self._char2idx[char]
+                    char_vec[idx] = 1
+
+                if flat:
+                    encoded_word = encoded_word + char_vec
+
+                else:
+                    encoded_word.append(char_vec)
+
+            encoded_words.append(encoded_word)
+
+        return np.array(encoded_words)
 
 
-'''
 def train_test_mlp(train_x, train_pos, test_x, test_pos):
     """Train and test MLP model predicting POS tags from given encoded words.
 
@@ -165,9 +208,11 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     Returns: None
     """
-    ### 5.3 - you may want to implement parts of the solution
-    ###       in other functions so that you share the common
-    ###       code between 5.3 and 5.4
+    # 5.3 - you may want to implement parts of the solution
+    # in other functions so that you share the common
+    # code between 5.3 and 5.4
+    return
+
 
 def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     """Train and test RNN model predicting POS tags from given encoded words.
@@ -182,8 +227,8 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
 
     Returns: None
     """
-    ### 5.4
-    '''
+    # 5.4
+    return
 
 
 if __name__ == '__main__':
@@ -199,3 +244,5 @@ if __name__ == '__main__':
     # 5.2
     encoder = WordEncoder()
     encoder.fit(words)
+    encoded_words = encoder.transform(words, flat=False)
+    print(encoded_words)
