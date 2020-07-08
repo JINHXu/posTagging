@@ -8,6 +8,11 @@
 import random
 import numpy as np
 
+from sklearn import preprocessing
+import keras
+from keras.models import Sequential
+from keras.layers import Dense
+
 
 def read_data(treebank, shuffle=True, lowercase=True,
               tags=None):
@@ -150,10 +155,6 @@ class WordEncoder:
         -----------
         encoded_data:  encoding the input words (a 2D or 3D numpy array)
         """
-        print(self._maxlen)
-        print(self._nchars)
-        print(self._maxlen*self._nchars)
-        print(len(words))
 
         # params check
         if isinstance(flat, bool) and (pad == 'right' or pad == 'left'):
@@ -221,7 +222,53 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
     # 5.3 - you may want to implement parts of the solution
     # in other functions so that you share the common
     # code between 5.3 and 5.4
-    return
+
+    # train_pos = train_pos.reshape((len(train_pos), 1))
+
+    # encode train_pos
+    le = preprocessing.LabelEncoder()
+    le.fit(train_pos)
+    encoded_train_pos = le.transform(train_pos)
+
+    # print(encoded_train_pos)
+    # num_classes = len(encoded_train_pos)
+    # num_classes = len(set(encoded_train_pos))
+    # set input shape
+    # feature_vector_length = len(train_x[0])
+    # input_shape = (feature_vector_length,)
+
+    mlp = Sequential()
+    # hidden layer
+    mlp.add(Dense(units=64, activation='relu'))
+    # output layer
+    mlp.add(Dense(units=1, activation='softmax'))
+
+    mlp.compile(optimizer='adam',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
+    hist = mlp.fit(train_x, encoded_train_pos, epochs=50, validation_split=0.2)
+
+    predicted = mlp.predict(train_x)
+    for p in predicted:
+        print(p)
+    print(predicted)
+    print(len(predicted))
+    print(len(train_pos))
+
+    '''
+    # print(predicted)
+    # print(len(predicted))
+    # print(len(train_x))
+
+    # the best epoch
+    losses = hist.history['loss']
+    best_epoch = losses.index(min(losses))
+
+    # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
+
+    # print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
+
+    '''
 
 
 def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
@@ -250,13 +297,11 @@ if __name__ == '__main__':
     # 5.1
     words, pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
-    print(len(words))
 
     # 5.2
-    words = ['bb', 'acc']
+
     encoder = WordEncoder()
     encoder.fit(words)
     encoded_words = encoder.transform(words)
-    # check shape
-    print(encoded_words)
-    print(encoded_words.shape)
+
+    train_test_mlp(encoded_words, pos, None, None)
