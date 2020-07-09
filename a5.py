@@ -182,31 +182,39 @@ class WordEncoder:
         # append special characters to words
         word_list = self.add_special_tokens(words)
 
-        for word in words:
-            # truncate if word longer than maxlen
+        word_to_array = np.zeros((len(words), self._maxlen, self._total_number_chars))
+
+        for i, word in enumerate(word_list):
             if len(word) > self._maxlen:
-                word = word[:self._maxlen]
-            # for each character in each word
-            for char in word:
-                # create empty array of zeros
-                word_char_vec = np.zeros((self._total_number_chars,), dtype=int)
-                # if char of word equals character in singleChar, add 1 at the specified position of this char determined by the dictionary _singleChar
-                if char in self._singleChars:
-                    word_char_vec[self._singleChars[char]] = 1
-                # else if char not in _singleChar, then it is UNK and therefore, at position two will be a 1
+                word = word[-self._maxlen:]
+
+            if len(word) < self._maxlen and pad == "left":
+                # number to pad
+                number_to_pad = self._maxlen - len(word)
+                number_to_pad * [-1] + word  # -1 is symbol to pad
+
+            for j, character in enumerate(word):
+                # truncate if word longer than maxlen, but from the beginning,
+                # since the end can give information what word type it is, e.g. ly - adverb...
+
+                if character == -1:
+                    continue
+                elif character in self._singleChars:
+                    index = self._singleChars[character]
+                    word_to_array[i, j, index] = 1
                 else:
-                    char = "UNK"
-                    word_char_vec[self._singleChars[char]] = 1
-            if word < self._maxlen:
-                if pad is "right":
-                    word
+                    character = "UNK"
+                    index = self._singleChars[character]
+                    word_to_array[i, j, index] = 1
+
+        # print(type(word_to_array))
+        if flat:
+            word_to_array = np.reshape(word_to_array, (len(words), self._total_number_chars*self._maxlen))
+            print(word_to_array.shape)
 
 
+        return word_to_array
 
-
-
-
-        #vector_char_words = [[0 if char != letter selse 1 for char in self._singleChars] for letter in self._word_list]
 
 
 def train_test_mlp(train_x, train_pos, test_x, test_pos):
@@ -254,4 +262,5 @@ if __name__ == '__main__':
     words, pos_tags = read_data("en_partut-ud-dev.conllu")
     encoder = WordEncoder()
     encoder.fit(words)
-    encoder.transform(words)
+    encoded_array = encoder.transform(words, flat=True)
+
