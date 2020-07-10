@@ -11,7 +11,7 @@ import numpy as np
 from sklearn import preprocessing
 import keras
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Embedding, LSTM
 from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
 
 
@@ -291,7 +291,49 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     Returns: None
     """
     # 5.4
-    return
+    # encode train_pos
+    lb = preprocessing.LabelBinarizer()
+    lb.fit(trn_pos)
+    encoded_train_pos = lb.transform(trn_pos)
+
+    # output shape
+    output_dim = encoded_train_pos.shape[1]
+
+    rnn = Sequential()
+    rnn.add(LSTM(64, input_shape=(
+        trn_x.shape[1], trn_x.shape[2]), activation='relu'))
+    rnn.add(Dense(output_dim, activation='softmax'))
+
+    rnn.compile(optimizer='adam',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
+    hist = rnn.fit(trn_x, encoded_train_pos, epochs=50, validation_split=0.2)
+
+    # the best epoch
+    losses = hist.history['loss']
+    best_epoch = losses.index(min(losses))
+
+    # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
+    best_rnn = Sequential()
+    best_rnn.add(LSTM(64, input_shape=(
+        trn_x.shape[1], trn_x.shape[2]), activation='relu'))
+    best_rnn.add(Dense(output_dim, activation='softmax'))
+
+    best_rnn.compile(optimizer='adam',
+                     loss='categorical_crossentropy',
+                     metrics=['accuracy'])
+    best_rnn.fit(trn_x, encoded_train_pos, epochs=best_epoch)
+
+    # print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
+    y_test_pred = lb.inverse_transform(best_rnn.predict(tst_x))
+    # get the stats from sklearn
+    print(
+        f'macro-averaged precision: {precision_score(test_pos, y_test_pred, average="macro")}')
+    print(
+        f'macro-averaged recall: {recall_score(test_pos, y_test_pred, average="macro")}')
+    print(
+        f'macro-averaged f-1: {f1_score(test_pos, y_test_pred, average="macro")}')
+    print(f'confusion-matrix:\n {confusion_matrix(test_pos, y_test_pred)}')
 
 
 if __name__ == '__main__':
@@ -303,14 +345,21 @@ if __name__ == '__main__':
     # 5.1
     train_words, train_pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
+
     test_words, test_pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-test.conllu')
 
     # 5.2
     encoder = WordEncoder()
     encoder.fit(train_words)
+    '''
     encoded_train_words = encoder.transform(train_words)
     encoded_test_words = encoder.transform(test_words)
+    '''
+    # 5.3
+    # train_test_mlp(encoded_train_words, train_pos, encoded_test_words, test_pos)
 
-    train_test_mlp(encoded_train_words, train_pos,
-                   encoded_test_words, test_pos)
+    # 5.4
+    encoded_trn_words = encoder.transform(train_words, flat=False)
+    encoded_tst_words = encoder.transform(test_words, flat=False)
+    train_test_rnn(encoded_trn_words, train_pos, encoded_tst_words, test_pos)
