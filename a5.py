@@ -267,7 +267,14 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     # print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
     y_test_pred = lb.inverse_transform(best_mlp.predict(test_x))
-    # get the stats from sklearn 
+    # get the stats from sklearn
+    print(
+        f'macro-averaged precision: {precision_score(test_pos, y_test_pred, average="macro")}')
+    print(
+        f'macro-averaged recall: {recall_score(test_pos, y_test_pred, average="macro")}')
+    print(
+        f'macro-averaged f-1: {f1_score(test_pos, y_test_pred, average="macro")}')
+    print(f'confusion-matrix:\n {confusion_matrix(test_pos, y_test_pred)}')
 
 
 def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
@@ -294,17 +301,16 @@ if __name__ == '__main__':
     # set properly.
 
     # 5.1
-
     train_words, train_pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
     test_words, test_pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-test.conllu')
 
     # 5.2
-
     encoder = WordEncoder()
     encoder.fit(train_words)
     encoded_train_words = encoder.transform(train_words)
     encoded_test_words = encoder.transform(test_words)
 
-    train_test_mlp(encoded_train_words, train_pos, encoded_test_words, test_pos)
+    train_test_mlp(encoded_train_words, train_pos,
+                   encoded_test_words, test_pos)
