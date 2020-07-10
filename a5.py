@@ -12,6 +12,7 @@ from sklearn import preprocessing
 import keras
 from keras.models import Sequential
 from keras.layers import Dense
+from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
 
 
 def read_data(treebank, shuffle=True, lowercase=True,
@@ -226,49 +227,47 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
     # train_pos = train_pos.reshape((len(train_pos), 1))
 
     # encode train_pos
-    le = preprocessing.LabelEncoder()
-    le.fit(train_pos)
-    encoded_train_pos = le.transform(train_pos)
+    lb = preprocessing.LabelBinarizer()
+    lb.fit(train_pos)
+    encoded_train_pos = lb.transform(train_pos)
 
-    # print(encoded_train_pos)
-    # num_classes = len(encoded_train_pos)
-    # num_classes = len(set(encoded_train_pos))
-    # set input shape
-    # feature_vector_length = len(train_x[0])
-    # input_shape = (feature_vector_length,)
+    # output shape
+    output_layer_units = encoded_train_pos.shape[1]
+
+    # input shape
+    input_shape = (train_x.shape[1],)
+    # input_dim = train_x.shape[1]
 
     mlp = Sequential()
     # hidden layer
-    mlp.add(Dense(units=64, activation='relu'))
+    mlp.add(Dense(units=64, activation='relu', input_shape=input_shape))
     # output layer
-    mlp.add(Dense(units=1, activation='softmax'))
+    mlp.add(Dense(units=output_layer_units, activation='softmax'))
 
     mlp.compile(optimizer='adam',
                 loss='categorical_crossentropy',
                 metrics=['accuracy'])
     hist = mlp.fit(train_x, encoded_train_pos, epochs=50, validation_split=0.2)
 
-    predicted = mlp.predict(train_x)
-    for p in predicted:
-        print(p)
-    print(predicted)
-    print(len(predicted))
-    print(len(train_pos))
-
-    '''
-    # print(predicted)
-    # print(len(predicted))
-    # print(len(train_x))
-
     # the best epoch
     losses = hist.history['loss']
     best_epoch = losses.index(min(losses))
 
     # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
+    best_mlp = Sequential()
+    # hidden layer
+    best_mlp.add(Dense(units=64, activation='relu', input_shape=input_shape))
+    # output layer
+    best_mlp.add(Dense(units=output_layer_units, activation='softmax'))
+
+    best_mlp.compile(optimizer='adam',
+                     loss='categorical_crossentropy',
+                     metrics=['accuracy'])
+    best_mlp.fit(train_x, encoded_train_pos, epochs=best_epoch)
 
     # print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
-
-    '''
+    y_test_pred = lb.inverse_transform(best_mlp.predict(test_x))
+    # get the stats from sklearn 
 
 
 def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
@@ -295,13 +294,17 @@ if __name__ == '__main__':
     # set properly.
 
     # 5.1
-    words, pos = read_data(
+
+    train_words, train_pos = read_data(
         '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
+    test_words, test_pos = read_data(
+        '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-test.conllu')
 
     # 5.2
 
     encoder = WordEncoder()
-    encoder.fit(words)
-    encoded_words = encoder.transform(words)
+    encoder.fit(train_words)
+    encoded_train_words = encoder.transform(train_words)
+    encoded_test_words = encoder.transform(test_words)
 
-    train_test_mlp(encoded_words, pos, None, None)
+    train_test_mlp(encoded_train_words, train_pos, encoded_test_words, test_pos)
