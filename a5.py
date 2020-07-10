@@ -7,10 +7,18 @@
 import random
 from _csv import reader
 
+from keras import layers
+from keras.models import Sequential
+from keras.layers import Dense, Embedding, LSTM
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn import preprocessing
+from sklearn.metrics import classification_report, precision_score, f1_score, recall_score, confusion_matrix
 import numpy as np
 import nltk
 import pandas as pd
 import tf as tf
+from sklearn.model_selection import train_test_split
+from tensorflow.python.keras.utils.np_utils import to_categorical
 
 
 def read_data(treebank, shuffle=True, lowercase=True,
@@ -124,7 +132,6 @@ class WordEncoder:
         sortedwords = sorted(words, key=len)
         long_word = sortedwords[-1]
         longest_word = len(sortedwords[-1]) + 2  # longest word +2 since <s> and </s> count as one character respectively
-        print(long_word, longest_word)
 
         # the fit() method should set maxLen, to cover the longest word in the training set
         if self._maxlen is None:
@@ -148,10 +155,9 @@ class WordEncoder:
                     index += 1  # increment index by 1 so that each char receives individual index
                 else:
                     continue
-        print(self._singleChars)
 
         self._total_number_chars = len(self._singleChars)
-        print(self._total_number_chars)
+
 
     def transform(self, words, pad='right', flat=True):
         """ Transform a sequence of words to a sequence of one-hot vectors.
@@ -185,6 +191,8 @@ class WordEncoder:
         word_to_array = np.zeros((len(words), self._maxlen, self._total_number_chars))
 
         for i, word in enumerate(word_list):
+            # truncate if word longer than maxlen, but from the beginning,
+            # since the end can give information what word type it is, e.g. ly - adverb...
             if len(word) > self._maxlen:
                 word = word[-self._maxlen:]
 
@@ -194,28 +202,72 @@ class WordEncoder:
                 number_to_pad * [-1] + word  # -1 is symbol to pad
 
             for j, character in enumerate(word):
-                # truncate if word longer than maxlen, but from the beginning,
-                # since the end can give information what word type it is, e.g. ly - adverb...
-
                 if character == -1:
+                    continue
+                elif j==0 and (word[0:3] == "<s>"):
+                    character = "<s>"
+                    index = self._singleChars[character]
+                    word_to_array[i, j, index] = 1
+                    continue
+                elif j==1 or j==2 and (word[1:3] == "s>"):
+                    continue
+                elif j==len(word)-4 and (word[len(word)-4:] == "</s>"):
+                    character = "</s>"
+                    index = self._singleChars[character]
+                    word_to_array[i, j, index] = 1
+                    continue
+                elif j==(len(word)-3) or j==(len(word)-2) or j==(len(word)-1) and (word[(len(word)-3):len(word)] == "/s>"):
                     continue
                 elif character in self._singleChars:
                     index = self._singleChars[character]
                     word_to_array[i, j, index] = 1
+
                 else:
                     character = "UNK"
                     index = self._singleChars[character]
                     word_to_array[i, j, index] = 1
 
-        # print(type(word_to_array))
         if flat:
             word_to_array = np.reshape(word_to_array, (len(words), self._total_number_chars*self._maxlen))
-            print(word_to_array.shape)
-
 
         return word_to_array
 
+def precision_recall_f1_confusionMatrix(y_test, y_pred):
+    print(f'macro precision score: \n {precision_score(y_test, y_pred, average="macro")}')
+    print(f'macro recall score: \n {recall_score(y_test, y_pred, average="macro")}')
+    print(f'macro f1-score: \n {f1_score(y_test, y_pred, average="macro")}')
+    print(f'confusion matrix: \n {confusion_matrix(y_test, y_pred)}')
 
+def training_phase_both_models(train_x, train_pos, test_x, test_pos, filepath, model):
+    # define callbacks to early stop training and save best model
+    callbacks = [EarlyStopping(monitor='val_loss', patience=4),
+                 ModelCheckpoint(filepath=filepath, monitor='val_loss', save_best_only=True)]
+    # Configure the model and start training
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # train model, epochs (iterations = 50), batch-size=250 (number of observations per batch),
+    # validation split 20% (uses 20% of training samples as optimization)
+    fitted_model = model.fit(train_x, train_pos, epochs=50, callbacks=callbacks, validation_split=0.2)
+
+    # # test model after training
+    # test_results = model.evaluate(test_x, test_pos, verbose=1)
+    # print(test_results)
+
+    return fitted_model
+
+def retrain_models(train_x, train_pos, test_x, test_pos, model, best_epochs):
+
+    # re-train model on entire data-set
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.fit(train_x, train_pos, epochs=best_epochs)
+    y_pred = model.predict(test_x)
+    return y_pred
+
+
+def encode_train_pos(train_pos):
+    # encode train_pos
+    labeler = preprocessing.LabelBinarizer()
+    labeler.fit(train_pos)
+    return labeler
 
 def train_test_mlp(train_x, train_pos, test_x, test_pos):
     """Train and test MLP model predicting POS tags from given encoded words.
@@ -234,6 +286,44 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
     ###       in other functions so that you share the common
     ###       code between 5.3 and 5.4
 
+
+
+    # convert target classes to categorical ones
+    # encode train_pos
+    labeler = encode_train_pos(train_pos)
+    train_pos = labeler.transform(train_pos)
+    print(type(train_pos))
+
+    # input shape
+    input_shape = (train_x.shape[1],)
+
+    # output shape
+    output_shape = train_pos.shape[1]
+
+    # define Keras model
+    model = Sequential()
+    model.add(Dense(64, input_shape=input_shape, activation='relu'))
+    # add output layer
+    model.add(Dense(units=output_shape, activation="softmax"))
+
+
+    # file to save weights of callback for model before retraining
+    before_filepath = "best_mlp_before_retraining.hdf5"
+    fitted_model = training_phase_both_models(train_x, train_pos, test_x, test_pos, before_filepath, model)
+    print(type(fitted_model))
+
+    # best epoch
+    loss_hist = fitted_model.history['val_loss']
+    best_epoch = np.argmin(loss_hist)
+
+    # file to save weights of callback for model after retraining
+    y_pred = retrain_models(train_x, train_pos, test_x, test_pos, model, best_epoch)
+    y_pred = labeler.inverse_transform(y_pred)
+
+    # print macro averaged precision, recall, f1-score and confusion matrix on test-set
+    precision_recall_f1_confusionMatrix(test_pos, y_pred)
+
+
 def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     """
     Train and test RNN model predicting POS tags from given encoded words.
@@ -249,6 +339,37 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     Returns: None
     """
     ### 5.4
+    # encode trn_pos
+    labeler = encode_train_pos(trn_pos)
+    trn_pos = labeler.transform(trn_pos)
+
+    # input shape
+    input_shape = (trn_x.shape[0],)
+
+    # output shape
+    output_shape = trn_pos.shape[1]
+
+
+
+    model = Sequential()
+    model.add(Embedding(input_dim=trn_x.shape[0], output_dim=output_shape))
+    model.add(LSTM(units=64, activation="relu"))
+    model.add(Dense(units=output_shape, activation="softmax"))
+
+    before_filepath = "best_lstm_before_retraining.hdf5"
+    fitted_model = training_phase_both_models(trn_x, trn_pos, tst_x, tst_pos, before_filepath, model)
+
+    # best epoch
+    loss_hist = fitted_model.history['val_loss']
+    best_epoch = np.argmin(loss_hist)
+
+    # file to save weights of callback for model after retraining
+
+    y_pred = retrain_models(trn_x, trn_pos, tst_x, tst_pos, model, best_epoch)
+    y_pred = labeler.inverse_transform(y_pred)
+
+    # print macro averaged precision, recall, f1-score and confusion matrix on test-set
+    precision_recall_f1_confusionMatrix(test_pos, y_pred)
 
 
 if __name__ == '__main__':
@@ -259,8 +380,16 @@ if __name__ == '__main__':
 
     #
     # dataset downloaded from https://github.com/UniversalDependencies/UD_English-ParTUT
-    words, pos_tags = read_data("en_partut-ud-dev.conllu")
+    words, pos_tags = read_data("en_partut-ud-train.conllu")
+    test_words, test_pos = read_data("en_partut-ud-test.conllu")
     encoder = WordEncoder()
     encoder.fit(words)
-    encoded_array = encoder.transform(words, flat=True)
+    encoded_array = encoder.transform(words)
+    test_encoded_array = encoder.transform(test_words)
+
+    # X_train, X_test, y_train, y_test = train_test_split(encoded_array, pos_tags, test_size=0.2, random_state=1)
+
+    # train_test_mlp(encoded_array, pos_tags, test_encoded_array, test_pos)
+    train_test_rnn(encoded_array, pos_tags, test_encoded_array, test_pos)
+
 
