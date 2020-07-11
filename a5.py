@@ -2,7 +2,12 @@
 """ Statistical Language Processing (SNLP), Assignment 5
     See <https://snlp2020.github.io/a5/> for detailed instructions.
 
-    <Please insert your name and the honor code here.>
+    Course:      Statistical Language processing - SS2020
+    Assignment:  A5
+    Author(s):   Anna-Sophie Bartle, Jinghua Xu
+    Description: experiment with NN
+    
+    Honor Code:  We pledge that this program represents our own work.
 """
 
 import random
@@ -208,35 +213,32 @@ class WordEncoder:
 
 
 def precision_recall_f1_confusionMatrix(y_test, y_pred):
-    print(f'macro precision score: \n {precision_score(y_test, y_pred, average="macro")}')
-    print(f'macro recall score: \n {recall_score(y_test, y_pred, average="macro")}')
+    print(
+        f'macro precision score: \n {precision_score(y_test, y_pred, average="macro")}')
+    print(
+        f'macro recall score: \n {recall_score(y_test, y_pred, average="macro")}')
     print(f'macro f1-score: \n {f1_score(y_test, y_pred, average="macro")}')
     print(f'confusion matrix: \n {confusion_matrix(y_test, y_pred)}')
 
-def training_phase_both_models(train_x, train_pos, test_x, test_pos, model, filepath=""):
-    # define callbacks to early stop training and save best model
 
-    if not filepath:
-        callbacks = None
-    else:
-        callbacks = [EarlyStopping(monitor='val_loss', min_delta=0.005, patience=4),
-                     ModelCheckpoint(filepath=filepath, monitor='val_loss', save_best_only=True)]
+def training_phase_both_models(train_x, train_pos, test_x, test_pos, model):
+
     # Configure the model and start training
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam', metrics=['accuracy'])
     # train model, epochs (iterations = 50), batch-size=250 (number of observations per batch),
     # validation split 20% (uses 20% of training samples as optimization)
-    fitted_model = model.fit(train_x, train_pos, epochs=50, callbacks=callbacks, validation_split=0.2)
-
-    # # test model after training
-    # test_results = model.evaluate(test_x, test_pos, verbose=1)
-    # print(test_results)
+    fitted_model = model.fit(
+        train_x, train_pos, epochs=50, validation_split=0.2)
 
     return fitted_model
+
 
 def retrain_models(train_x, train_pos, test_x, test_pos, model, best_epochs):
 
     # re-train model on entire data-set
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam', metrics=['accuracy'])
     model.fit(train_x, train_pos, epochs=best_epochs)
     y_pred = model.predict(test_x)
     return y_pred
@@ -247,6 +249,7 @@ def encode_train_pos(train_pos):
     labeler = preprocessing.LabelBinarizer()
     labeler.fit(train_pos)
     return labeler
+
 
 def train_test_mlp(train_x, train_pos, test_x, test_pos):
     """Train and test MLP model predicting POS tags from given encoded words.
@@ -261,11 +264,9 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     Returns: None
     """
-    ### 5.3 - you may want to implement parts of the solution
-    ###       in other functions so that you share the common
-    ###       code between 5.3 and 5.4
-
-
+    # 5.3 - you may want to implement parts of the solution
+    # in other functions so that you share the common
+    # code between 5.3 and 5.4
 
     # convert target classes to categorical ones
     # encode train_pos
@@ -285,10 +286,9 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
     # add output layer
     model.add(Dense(units=output_shape, activation="softmax"))
 
-
     # file to save weights of callback for model before retraining
-    before_filepath = "best_mlp_before_retraining.hdf5"
-    fitted_model = training_phase_both_models(train_x, train_pos, test_x, test_pos, model)
+    fitted_model = training_phase_both_models(
+        train_x, train_pos, test_x, test_pos, model)
 
     # best epoch
     loss_hist = fitted_model.history['loss']
@@ -296,7 +296,8 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
     print(best_epoch)
 
     # file to save weights of callback for model after retraining
-    y_pred = retrain_models(train_x, train_pos, test_x, test_pos, model, best_epoch)
+    y_pred = retrain_models(train_x, train_pos, test_x,
+                            test_pos, model, best_epoch)
     y_pred = labeler.inverse_transform(y_pred)
 
     # print macro averaged precision, recall, f1-score and confusion matrix on test-set
@@ -317,7 +318,7 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
 
     Returns: None
     """
-    ### 5.4
+    # 5.4
     # encode trn_pos
     labeler = encode_train_pos(trn_pos)
     trn_pos = labeler.transform(trn_pos)
@@ -332,22 +333,19 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     model.add(LSTM(64, input_shape=input_shape, activation="relu"))
     model.add(Dense(output_shape, activation="softmax"))
 
-    before_filepath = "best_lstm_before_retraining.hdf5"
-    fitted_model = training_phase_both_models(trn_x, trn_pos, tst_x, tst_pos, model)
+    fitted_model = training_phase_both_models(
+        trn_x, trn_pos, tst_x, tst_pos, model)
 
     # best epoch
     loss_hist = fitted_model.history['loss']
     best_epoch = np.argmin(loss_hist)
-    print(best_epoch)
 
     # file to save weights of callback for model after retraining
-
     y_pred = retrain_models(trn_x, trn_pos, tst_x, tst_pos, model, best_epoch)
     y_pred = labeler.inverse_transform(y_pred)
 
     # print macro averaged precision, recall, f1-score and confusion matrix on test-set
     precision_recall_f1_confusionMatrix(test_pos, y_pred)
-
 
 
 if __name__ == '__main__':
@@ -356,24 +354,21 @@ if __name__ == '__main__':
     # train_test_rnn(), you need to split the as training and test
     # set properly.
 
-    # 5.1
-    train_words, train_pos = read_data(
-        '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-dev.conllu')
-
-    test_words, test_pos = read_data(
-        '/Users/xujinghua/a5-asb1993-jinhxu/en_ewt-ud-test.conllu')
-
-    # 5.2
+    #
+    # dataset downloaded from https://github.com/UniversalDependencies/UD_English-ParTUT
+    words, pos_tags = read_data("en_partut-ud-train.conllu")
+    test_words, test_pos = read_data("en_partut-ud-test.conllu")
     encoder = WordEncoder()
-    encoder.fit(train_words)
-    '''
-    encoded_train_words = encoder.transform(train_words)
-    encoded_test_words = encoder.transform(test_words)
-    '''
+    encoder.fit(words)
+
     # 5.3
-    # train_test_mlp(encoded_train_words, train_pos, encoded_test_words, test_pos)
+    encoded_array = encoder.transform(words)
+    test_encoded_array = encoder.transform(test_words)
+    train_test_mlp(encoded_array, pos_tags, test_encoded_array, test_pos)
+
+    print("-------------------------------------------------------------------------------------------------------------")
 
     # 5.4
-    encoded_trn_words = encoder.transform(train_words, flat=False)
-    encoded_tst_words = encoder.transform(test_words, flat=False)
-    train_test_rnn(encoded_trn_words, train_pos, encoded_tst_words, test_pos)
+    rnn_train_words = encoder.transform(words, flat=False)
+    rnn_test_words = encoder.transform(test_words, flat=False)
+    train_test_rnn(rnn_train_words, pos_tags, rnn_test_words, test_pos)
