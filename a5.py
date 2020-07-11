@@ -39,7 +39,7 @@ def read_data(treebank, shuffle=True, lowercase=True,
     # list of word_pos pairs
     word_pos = []
 
-    with open(treebank, 'r') as f:
+    with open(treebank, 'r', encoding='utf-8') as f:
         lines = f.readlines()
         if shuffle:
             random.shuffle(lines)
@@ -265,7 +265,7 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     # the best epoch
     losses = hist.history['loss']
-    best_epoch = losses.index(min(losses))
+    best_epoch = losses.index(min(losses))+1
 
     # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
     mlp.compile(optimizer='adam',
@@ -311,7 +311,7 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
 
     # the best epoch
     losses = hist.history['loss']
-    best_epoch = losses.index(min(losses))
+    best_epoch = losses.index(min(losses))+1
 
     # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
     rnn.compile(optimizer='adam',
