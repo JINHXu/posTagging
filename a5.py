@@ -323,7 +323,7 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     y_test_pred = lb.inverse_transform(rnn.predict(tst_x))
 
     # print stats
-    print_stats(test_pos, y_test_pred)
+    print_stats(tst_pos, y_test_pred)
 
 
 if __name__ == '__main__':
