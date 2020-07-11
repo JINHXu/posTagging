@@ -238,10 +238,14 @@ def precision_recall_f1_confusionMatrix(y_test, y_pred):
     print(f'macro f1-score: \n {f1_score(y_test, y_pred, average="macro")}')
     print(f'confusion matrix: \n {confusion_matrix(y_test, y_pred)}')
 
-def training_phase_both_models(train_x, train_pos, test_x, test_pos, filepath, model):
+def training_phase_both_models(train_x, train_pos, test_x, test_pos, model, filepath=""):
     # define callbacks to early stop training and save best model
-    callbacks = [EarlyStopping(monitor='val_loss', patience=4),
-                 ModelCheckpoint(filepath=filepath, monitor='val_loss', save_best_only=True)]
+
+    if not filepath:
+        callbacks = None
+    else:
+        callbacks = [EarlyStopping(monitor='val_loss', min_delta=0.005, patience=4),
+                     ModelCheckpoint(filepath=filepath, monitor='val_loss', save_best_only=True)]
     # Configure the model and start training
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     # train model, epochs (iterations = 50), batch-size=250 (number of observations per batch),
@@ -309,12 +313,12 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     # file to save weights of callback for model before retraining
     before_filepath = "best_mlp_before_retraining.hdf5"
-    fitted_model = training_phase_both_models(train_x, train_pos, test_x, test_pos, before_filepath, model)
-    print(type(fitted_model))
+    fitted_model = training_phase_both_models(train_x, train_pos, test_x, test_pos, model)
 
     # best epoch
-    loss_hist = fitted_model.history['val_loss']
+    loss_hist = fitted_model.history['loss']
     best_epoch = np.argmin(loss_hist)
+    print(best_epoch)
 
     # file to save weights of callback for model after retraining
     y_pred = retrain_models(train_x, train_pos, test_x, test_pos, model, best_epoch)
@@ -344,24 +348,22 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     trn_pos = labeler.transform(trn_pos)
 
     # input shape
-    input_shape = (trn_x.shape[0],)
+    input_shape = (trn_x.shape[1], trn_x.shape[2])
 
     # output shape
     output_shape = trn_pos.shape[1]
 
-
-
     model = Sequential()
-    model.add(Embedding(input_dim=trn_x.shape[0], output_dim=output_shape))
-    model.add(LSTM(units=64, activation="relu"))
-    model.add(Dense(units=output_shape, activation="softmax"))
+    model.add(LSTM(64, input_shape=input_shape, activation="relu"))
+    model.add(Dense(output_shape, activation="softmax"))
 
     before_filepath = "best_lstm_before_retraining.hdf5"
-    fitted_model = training_phase_both_models(trn_x, trn_pos, tst_x, tst_pos, before_filepath, model)
+    fitted_model = training_phase_both_models(trn_x, trn_pos, tst_x, tst_pos, model)
 
     # best epoch
-    loss_hist = fitted_model.history['val_loss']
+    loss_hist = fitted_model.history['loss']
     best_epoch = np.argmin(loss_hist)
+    print(best_epoch)
 
     # file to save weights of callback for model after retraining
 
@@ -384,12 +386,17 @@ if __name__ == '__main__':
     test_words, test_pos = read_data("en_partut-ud-test.conllu")
     encoder = WordEncoder()
     encoder.fit(words)
+
+    # 5.3
     encoded_array = encoder.transform(words)
     test_encoded_array = encoder.transform(test_words)
+    train_test_mlp(encoded_array, pos_tags, test_encoded_array, test_pos)
 
-    # X_train, X_test, y_train, y_test = train_test_split(encoded_array, pos_tags, test_size=0.2, random_state=1)
+    print("-------------------------------------------------------------------------------------------------------------")
 
-    # train_test_mlp(encoded_array, pos_tags, test_encoded_array, test_pos)
-    train_test_rnn(encoded_array, pos_tags, test_encoded_array, test_pos)
+    # 5.4
+    rnn_train_words = encoder.transform(words, flat=False)
+    rnn_test_words = encoder.transform(test_words, flat=False)
+    train_test_rnn(rnn_train_words, pos_tags, rnn_test_words, test_pos)
 
 
