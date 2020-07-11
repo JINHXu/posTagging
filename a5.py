@@ -79,6 +79,7 @@ def read_data(treebank, shuffle=True, lowercase=True,
 
     return words, pos_tags
 
+
 class WordEncoder:
     """An encoder for a sequence of words.
 
@@ -161,6 +162,7 @@ class WordEncoder:
         self._total_number_chars = len(self._singleChars)
 
 
+
     def transform(self, words, pad='right', flat=True):
         """ Transform a sequence of words to a sequence of one-hot vectors.
 
@@ -234,6 +236,7 @@ class WordEncoder:
 
         return word_to_array
 
+
 def precision_recall_f1_confusionMatrix(y_test, y_pred):
     print(f'macro precision score: \n {precision_score(y_test, y_pred, average="macro")}')
     print(f'macro recall score: \n {recall_score(y_test, y_pred, average="macro")}')
@@ -248,15 +251,12 @@ def training_phase_both_models(train_x, train_pos, test_x, test_pos, model, file
     else:
         callbacks = [EarlyStopping(monitor='val_loss', min_delta=0.005, patience=4),
                      ModelCheckpoint(filepath=filepath, monitor='val_loss', save_best_only=True)]
-    # Configure the model and start training
+    # compile the model and start training
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     # train model, epochs (iterations = 50), batch-size=250 (number of observations per batch),
     # validation split 20% (uses 20% of training samples as optimization)
     fitted_model = model.fit(train_x, train_pos, epochs=50, callbacks=callbacks, validation_split=0.2)
 
-    # # test model after training
-    # test_results = model.evaluate(test_x, test_pos, verbose=1)
-    # print(test_results)
 
     return fitted_model
 
@@ -288,15 +288,11 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     Returns: None
     """
-    ### 5.3 - you may want to implement parts of the solution
-    ###       in other functions so that you share the common
-    ###       code between 5.3 and 5.4
-
-
 
     # convert target classes to categorical ones
     # encode train_pos
-    labeler = encode_train_pos(train_pos)
+    labeler = preprocessing.LabelBinarizer()
+    labeler.fit(train_pos)
     train_pos = labeler.transform(train_pos)
     print(type(train_pos))
 
@@ -324,7 +320,9 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
 
     # file to save weights of callback for model after retraining
     y_pred = retrain_models(train_x, train_pos, test_x, test_pos, model, best_epoch)
+    print(y_pred)
     y_pred = labeler.inverse_transform(y_pred)
+    print(y_pred)
 
     # print macro averaged precision, recall, f1-score and confusion matrix on test-set
     precision_recall_f1_confusionMatrix(test_pos, y_pred)
@@ -346,7 +344,8 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     """
     ### 5.4
     # encode trn_pos
-    labeler = encode_train_pos(trn_pos)
+    labeler = preprocessing.LabelBinarizer()
+    labeler.fit(trn_pos)
     trn_pos = labeler.transform(trn_pos)
 
     # input shape
@@ -370,7 +369,9 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     # file to save weights of callback for model after retraining
 
     y_pred = retrain_models(trn_x, trn_pos, tst_x, tst_pos, model, best_epoch)
+    print(y_pred)
     y_pred = labeler.inverse_transform(y_pred)
+    print(y_pred)
 
     # print macro averaged precision, recall, f1-score and confusion matrix on test-set
     precision_recall_f1_confusionMatrix(test_pos, y_pred)
