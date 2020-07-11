@@ -2,7 +2,9 @@
 """ Statistical Language Processing (SNLP), Assignment 5
     See <https://snlp2020.github.io/a5/> for detailed instructions.
 
-    <Please insert your name and the honor code here.>
+     Author(s):   Jinghua Xu and Anna-Sophie Bartle
+
+     Honor Code:  We pledge that this program represents our own work.
 """
 import random
 from _csv import reader
