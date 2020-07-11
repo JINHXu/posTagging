@@ -212,48 +212,26 @@ class WordEncoder:
         return np.array(encoded_words)
 
 
-def precision_recall_f1_confusionMatrix(y_test, y_pred):
+def print_stats(test_pos, y_test_pred):
+    """Print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
+    Parameters:
+    -----------
+        test_pos:   pos tags in test data
+        y_test_pred:    predicted y(pos) of test data
+
+    Returns: None
+    """
     print(
-        f'macro precision score: \n {precision_score(y_test, y_pred, average="macro")}')
+        f'macro-averaged precision: {precision_score(test_pos, y_test_pred, average="macro")}')
     print(
-        f'macro recall score: \n {recall_score(y_test, y_pred, average="macro")}')
-    print(f'macro f1-score: \n {f1_score(y_test, y_pred, average="macro")}')
-    print(f'confusion matrix: \n {confusion_matrix(y_test, y_pred)}')
-
-
-def training_phase_both_models(train_x, train_pos, test_x, test_pos, model):
-
-    # Configure the model and start training
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='adam', metrics=['accuracy'])
-    # train model, epochs (iterations = 50), batch-size=250 (number of observations per batch),
-    # validation split 20% (uses 20% of training samples as optimization)
-    fitted_model = model.fit(
-        train_x, train_pos, epochs=50, validation_split=0.2)
-
-    return fitted_model
-
-
-def retrain_models(train_x, train_pos, test_x, test_pos, model, best_epochs):
-
-    # re-train model on entire data-set
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='adam', metrics=['accuracy'])
-    model.fit(train_x, train_pos, epochs=best_epochs)
-    y_pred = model.predict(test_x)
-    return y_pred
-
-
-def encode_train_pos(train_pos):
-    # encode train_pos
-    labeler = preprocessing.LabelBinarizer()
-    labeler.fit(train_pos)
-    return labeler
+        f'macro-averaged recall: {recall_score(test_pos, y_test_pred, average="macro")}')
+    print(
+        f'macro-averaged f-1: {f1_score(test_pos, y_test_pred, average="macro")}')
+    print(f'confusion-matrix:\n {confusion_matrix(test_pos, y_test_pred)}')
 
 
 def train_test_mlp(train_x, train_pos, test_x, test_pos):
     """Train and test MLP model predicting POS tags from given encoded words.
-
     Parameters:
     -----------
     train_x:    A sequence of words encoded as described above
@@ -261,53 +239,49 @@ def train_test_mlp(train_x, train_pos, test_x, test_pos):
     train_pos:  The list of list of POS tags corresponding to each row
                 of train_x.
     test_x, test_pos: As train_x, train_pos, for the test set.
-
     Returns: None
     """
-    # 5.3 - you may want to implement parts of the solution
-    # in other functions so that you share the common
-    # code between 5.3 and 5.4
-
-    # convert target classes to categorical ones
     # encode train_pos
-    labeler = encode_train_pos(train_pos)
-    train_pos = labeler.transform(train_pos)
-    print(type(train_pos))
+    lb = preprocessing.LabelBinarizer()
+    lb.fit(train_pos)
+    encoded_train_pos = lb.transform(train_pos)
+
+    # output shape
+    output_layer_units = encoded_train_pos.shape[1]
 
     # input shape
     input_shape = (train_x.shape[1],)
 
-    # output shape
-    output_shape = train_pos.shape[1]
+    mlp = Sequential()
+    # hidden layer
+    mlp.add(Dense(units=64, activation='relu', input_shape=input_shape))
+    # output layer
+    mlp.add(Dense(units=output_layer_units, activation='softmax'))
 
-    # define Keras model
-    model = Sequential()
-    model.add(Dense(64, input_shape=input_shape, activation='relu'))
-    # add output layer
-    model.add(Dense(units=output_shape, activation="softmax"))
+    mlp.compile(optimizer='adam',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
+    hist = mlp.fit(train_x, encoded_train_pos, epochs=50, validation_split=0.2)
 
-    # file to save weights of callback for model before retraining
-    fitted_model = training_phase_both_models(
-        train_x, train_pos, test_x, test_pos, model)
+    # the best epoch
+    losses = hist.history['loss']
+    best_epoch = losses.index(min(losses))
 
-    # best epoch
-    loss_hist = fitted_model.history['loss']
-    best_epoch = np.argmin(loss_hist)
-    print(best_epoch)
+    # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
+    mlp.compile(optimizer='adam',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
+    mlp.fit(train_x, encoded_train_pos, epochs=best_epoch)
 
-    # file to save weights of callback for model after retraining
-    y_pred = retrain_models(train_x, train_pos, test_x,
-                            test_pos, model, best_epoch)
-    y_pred = labeler.inverse_transform(y_pred)
+    # print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
+    y_test_pred = lb.inverse_transform(mlp.predict(test_x))
 
-    # print macro averaged precision, recall, f1-score and confusion matrix on test-set
-    precision_recall_f1_confusionMatrix(test_pos, y_pred)
+    # print stats
+    print_stats(test_pos, y_test_pred)
 
 
 def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
-    """
-    Train and test RNN model predicting POS tags from given encoded words.
-
+    """Train and test RNN model predicting POS tags from given encoded words.
     Parameters:
     -----------
     train_x:    A sequence of words encoded as described above
@@ -315,45 +289,44 @@ def train_test_rnn(trn_x, trn_pos, tst_x, tst_pos):
     train_pos:  The list of list of POS tags corresponding to each row
                 of train_x.
     test_x, test_pos: As train_x, train_pos, for the test set.
-
     Returns: None
     """
-    # 5.4
-    # encode trn_pos
-    labeler = encode_train_pos(trn_pos)
-    trn_pos = labeler.transform(trn_pos)
-
-    # input shape
-    input_shape = (trn_x.shape[1], trn_x.shape[2])
+    # encode train_pos
+    lb = preprocessing.LabelBinarizer()
+    lb.fit(trn_pos)
+    encoded_train_pos = lb.transform(trn_pos)
 
     # output shape
-    output_shape = trn_pos.shape[1]
+    output_dim = encoded_train_pos.shape[1]
 
-    model = Sequential()
-    model.add(LSTM(64, input_shape=input_shape, activation="relu"))
-    model.add(Dense(output_shape, activation="softmax"))
+    rnn = Sequential()
+    rnn.add(LSTM(64, input_shape=(
+        trn_x.shape[1], trn_x.shape[2]), activation='relu'))
+    rnn.add(Dense(output_dim, activation='softmax'))
 
-    fitted_model = training_phase_both_models(
-        trn_x, trn_pos, tst_x, tst_pos, model)
+    rnn.compile(optimizer='adam',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
+    hist = rnn.fit(trn_x, encoded_train_pos, epochs=50, validation_split=0.2)
 
-    # best epoch
-    loss_hist = fitted_model.history['loss']
-    best_epoch = np.argmin(loss_hist)
+    # the best epoch
+    losses = hist.history['loss']
+    best_epoch = losses.index(min(losses))
 
-    # file to save weights of callback for model after retraining
-    y_pred = retrain_models(trn_x, trn_pos, tst_x, tst_pos, model, best_epoch)
-    y_pred = labeler.inverse_transform(y_pred)
+    # re-train the model (from scratch) using the full training set up to the best epoch determined earlier
+    rnn.compile(optimizer='adam',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
+    rnn.fit(trn_x, encoded_train_pos, epochs=best_epoch)
 
-    # print macro averaged precision, recall, f1-score and confusion matrix on test-set
-    precision_recall_f1_confusionMatrix(test_pos, y_pred)
+    # print out macro-averaged precision, recall, F1 scores, and the confusion matrix on the test set
+    y_test_pred = lb.inverse_transform(rnn.predict(tst_x))
+
+    # print stats
+    print_stats(test_pos, y_test_pred)
 
 
 if __name__ == '__main__':
-    # Not checked for grading,
-    # but remember that before calling train_test_mlp() and
-    # train_test_rnn(), you need to split the as training and test
-    # set properly.
-
     #
     # dataset downloaded from https://github.com/UniversalDependencies/UD_English-ParTUT
     words, pos_tags = read_data("en_partut-ud-train.conllu")
