@@ -17,7 +17,7 @@ Library:
 [Keras](https://www.tensorflow.org/api_docs/python/tf/keras)
 
 
-### 5.1 Read the data
-### 5.2 Encoding words
-### 5.3 Training and testing an MLP 
-### 5.4 Training and testing an RNN 
+* 5.1 Read the data
+* 5.2 Encoding words
+* 5.3 Training and testing an MLP 
+* 5.4 Training and testing an RNN 
