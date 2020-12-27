@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-""" Statistical Language Processing (SNLP), Assignment 5
-    See <https://snlp2020.github.io/a5/> for detailed instructions.
-
+"""https://snlp2020.github.io/a5/
     Course:      Statistical Language processing - SS2020
     Assignment:  A5
-    Author(s):   Anna-Sophie Bartle, Jinghua Xu
-    Description: experiment with NN
+    Author: Jinghua Xu
+    Description: experiment with ANNs
     
-    Honor Code:  We pledge that this program represents our own work.
+    Honor Code:  I pledge that this program represents my own work.
 """
 
 import random
